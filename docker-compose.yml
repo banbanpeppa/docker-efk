@@ -1,0 +1,58 @@
+version: '3.5'
+services:
+  web:
+    image: httpd
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: docker.for.mac.localhost:24224
+        tag: httpd.access
+    depends_on:
+      - fluentd
+    links:
+      - fluentd
+    networks:
+      - efk
+
+  fluentd:
+    build: ./fluentd
+    volumes:
+      - ./fluentd/conf/fluent.conf:/fluentd/etc/fluent.conf
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    depends_on:
+      - elasticsearch
+      - kibana
+    networks:
+      - efk
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.13.1
+    container_name: elasticsearch
+    environment:
+      - "discovery.type=single-node"
+    expose:
+      - "9200"
+    ports:
+      - "9200:9200"
+    networks:
+      - efk
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.13.1
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - efk
+
+networks:
+  efk:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1400
